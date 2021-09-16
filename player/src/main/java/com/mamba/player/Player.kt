@@ -1,9 +1,11 @@
 package com.mamba.player
 
 import android.util.Log
+import android.view.Surface
 import android.view.SurfaceHolder
+import android.view.SurfaceView
 
-class Player(private val dataSource: String) {
+class Player(private val dataSource: String) : SurfaceHolder.Callback {
 
     companion object {
         init {
@@ -12,6 +14,7 @@ class Player(private val dataSource: String) {
     }
 
     private var playerListener: PlayerListener? = null
+    private var surfaceHolder: SurfaceHolder? = null
 
     /**
      * 打开文件
@@ -47,8 +50,15 @@ class Player(private val dataSource: String) {
         this.playerListener = playerListener
     }
 
-    fun setSurfaceHolder(surfaceHolder: SurfaceHolder) {
-
+    /**
+     * 绑定 surface 监听
+     */
+    fun setSurfaceView(surfaceView: SurfaceView) {
+        if (surfaceHolder != null) {
+            surfaceHolder!!.removeCallback(this);
+        }
+        surfaceHolder = surfaceView.holder
+        surfaceHolder?.addCallback(this)
     }
 
     // --------- Native methods
@@ -56,6 +66,7 @@ class Player(private val dataSource: String) {
     private external fun nativePlay()
     private external fun nativeStop()
     private external fun nativeRelease()
+    private external fun nativeSetSurface(surface: Surface)
 
     // --------- JNI callback
     fun onPrepared() {
@@ -68,5 +79,18 @@ class Player(private val dataSource: String) {
          * 初始化成功
          */
         fun onPrepared()
+    }
+
+    // -------- Surface callback
+    override fun surfaceCreated(holder: SurfaceHolder?) {
+    }
+
+    override fun surfaceChanged(holder: SurfaceHolder?, format: Int, width: Int, height: Int) {
+        holder?.let {
+            nativeSetSurface(it.surface)
+        }
+    }
+
+    override fun surfaceDestroyed(holder: SurfaceHolder?) {
     }
 }

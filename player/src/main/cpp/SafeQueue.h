@@ -14,29 +14,93 @@ private:
     typedef void (*ReleaseCallback)(T *);
 
     int work;
-    queue <T> queue;
+    queue<T> queue;
     pthread_mutex_t mutex;
     pthread_cond_t cond;
     ReleaseCallback releaseCallback;
 
 public:
-    SafeQueue();
+    SafeQueue() {
+        pthread_mutex_init(&mutex, 0);
+        pthread_cond_init(&cond, 0);
+    }
 
-    ~SafeQueue();
+    ~SafeQueue() {
+        pthread_mutex_destroy(&mutex);
+        pthread_cond_destroy(&cond);
+    }
 
-    void insertToQueue(T value);
+    void insertToQueue(T value) {
+        pthread_mutex_lock(&mutex);
 
-    int getQueueAndDel(T &value);
+        if (work) {
+            queue.push(value);
+            pthread_cond_signal(&cond);
+        } else {
+            if (releaseCallback) {
+                releaseCallback(&value);
+            }
+        }
 
-    void setWork(int work);
+        pthread_mutex_unlock(&mutex);
+    }
 
-    int empty();
+    int getQueueAndDel(T &value) {
+        int ret = 0;
 
-    int size();
+        pthread_mutex_lock(&mutex);
 
-    void clear();
+        while (work && queue.empty()) {
+            pthread_cond_wait(&cond, &mutex);
+        }
 
-    void setReleaseCallback(ReleaseCallback releaseCallback);
+        if (!queue.empty()) {
+            value = queue.front();
+            queue.pop();
+            ret = 1;
+        }
+
+        pthread_mutex_unlock(&mutex);
+
+        return ret;
+    }
+
+    void setWork(int work) {
+        pthread_mutex_lock(&mutex);
+
+        this->work = work;
+
+        pthread_cond_signal(&cond);
+        pthread_mutex_unlock(&mutex);
+    }
+
+    int empty() {
+        return queue.empty();
+    }
+
+    int size() {
+        return queue.size();
+    }
+
+    void clear() {
+        pthread_mutex_lock(&mutex);
+
+        unsigned int size = queue.size();
+
+        for (int i = 0; i < size; ++i) {
+            T value = queue.front();
+            if (releaseCallback) {
+                releaseCallback(&value);
+            }
+            queue.pop();
+        }
+
+        pthread_mutex_unlock(&mutex);
+    }
+
+    void setReleaseCallback(ReleaseCallback releaseCallback) {
+        this->releaseCallback = releaseCallback;
+    }
 };
 
 #endif //MAMBAPLAYER_SAFEQUEUE_H

@@ -23,13 +23,22 @@ public:
 
     void prepareChild();
 
+    void play();
+
+    void playChild();
+
+    void setRenderCallback(RenderCallback callback);
+
 private:
     char *data_source = 0;
     pthread_t pid_prepare;
+    pthread_t pid_play;
     AVFormatContext *formatContext = 0;
     AudioChannel *audioChannel = 0;
     VideoChannel *videoChannel = 0;
     JNICallbackHelper *helper = 0;
+    bool isPlaying = 0;
+    RenderCallback renderCallback;
 };
 
 #endif //MAMBAPLAYER_REALPLAYER_H

@@ -9,6 +9,11 @@ RealPlayer::RealPlayer(const char *data_source, JNICallbackHelper *helper) {
 RealPlayer::~RealPlayer() {
     if (data_source) {
         delete data_source;
+        data_source = 0;
+    }
+    if (helper) {
+        delete helper;
+        helper = 0;
     }
 }
 
@@ -71,7 +76,8 @@ void RealPlayer::prepareChild() {
         if (parameters->codec_type == AVMediaType::AVMEDIA_TYPE_AUDIO) {
             audioChannel = new AudioChannel();
         } else if (parameters->codec_type == AVMediaType::AVMEDIA_TYPE_VIDEO) {
-            videoChannel = new VideoChannel();
+            videoChannel = new VideoChannel(i, codecContext);
+            videoChannel->setRenderCallback(renderCallback);
         }
     }
 
@@ -83,4 +89,42 @@ void RealPlayer::prepareChild() {
     if (helper) {
         helper->onPrepared(THREAD_CHILD);
     }
+}
+
+void *task_play(void *args) {
+    auto *player = static_cast<RealPlayer *>(args);
+    player->playChild();
+    return 0;
+}
+
+void RealPlayer::play() {
+    isPlaying = 1;
+
+    if (videoChannel) {
+        videoChannel->start();
+    }
+
+    pthread_create(&pid_play, 0, task_play, this);
+}
+
+void RealPlayer::playChild() {
+    while (isPlaying) {
+        AVPacket *packet = av_packet_alloc();
+        int ret = av_read_frame(formatContext, packet);
+        if (!ret) {
+            if (videoChannel && packet->stream_index == videoChannel->stream_index) {
+                videoChannel->packets.insertToQueue(packet);
+            }
+        } else if (ret == AVERROR_EOF) {
+
+        } else {
+            break;
+        }
+    }
+    isPlaying = 0;
+    videoChannel->stop();
+}
+
+void RealPlayer::setRenderCallback(RenderCallback callback) {
+    this->renderCallback = callback;
 }
