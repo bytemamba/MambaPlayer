@@ -34,13 +34,14 @@ void RealPlayer::prepareChild() {
     int ret = avformat_open_input(&formatContext, data_source, 0, &avDictionary);
     av_dict_free(&avDictionary);
     if (ret) {
-        __android_log_print(ANDROID_LOG_ERROR, "X_TAG", "onPrepared open failed");
+        // 错误回调
+        char *errMsg = av_err2str(ret);
+        __android_log_print(ANDROID_LOG_ERROR, "X_TAG", "onPrepared failed %s", errMsg);
         return;
     }
 
     ret = avformat_find_stream_info(formatContext, 0);
     if (ret < 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "X_TAG", "onPrepared find failed");
         return;
     }
 
@@ -49,22 +50,22 @@ void RealPlayer::prepareChild() {
         AVCodecParameters *parameters = stream->codecpar;
         // 根据流参数获取编解码器
         AVCodec *codec = avcodec_find_decoder(parameters->codec_id);
+        if (!codec) {
+            return;
+        }
         // 创建编解码上下文
         AVCodecContext *codecContext = avcodec_alloc_context3(codec);
         if (!codecContext) {
-            __android_log_print(ANDROID_LOG_ERROR, "X_TAG", "onPrepared codecContext failed");
             return;
         }
         // 设置参数到上下文
         ret = avcodec_parameters_to_context(codecContext, parameters);
         if (ret < 0) {
-            __android_log_print(ANDROID_LOG_ERROR, "X_TAG", "onPrepared avcodec_parameters_to_context failed");
             return;
         }
         // 打开编解码器
         ret = avcodec_open2(codecContext, codec, 0);
         if (ret) {
-            __android_log_print(ANDROID_LOG_ERROR, "X_TAG", "onPrepared avcodec_open2 failed");
             return;
         }
         if (parameters->codec_type == AVMediaType::AVMEDIA_TYPE_AUDIO) {
@@ -73,8 +74,6 @@ void RealPlayer::prepareChild() {
             videoChannel = new VideoChannel();
         }
     }
-
-    __android_log_print(ANDROID_LOG_ERROR, "X_TAG", "open success");
 
     if (!audioChannel || !videoChannel) {
         return;
