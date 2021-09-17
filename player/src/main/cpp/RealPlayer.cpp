@@ -9,18 +9,18 @@ RealPlayer::RealPlayer(const char *data_source, JNICallbackHelper *helper) {
 RealPlayer::~RealPlayer() {
     if (data_source) {
         delete data_source;
-        data_source = 0;
+        data_source = nullptr;
     }
     if (helper) {
         delete helper;
-        helper = 0;
+        helper = nullptr;
     }
 }
 
 void *task_prepare(void *args) {
     auto *player = static_cast<RealPlayer *>(args);
     player->prepareChild();
-    return 0;
+    return nullptr;
 }
 
 void RealPlayer::prepare() {
@@ -33,10 +33,10 @@ void RealPlayer::prepare() {
 void RealPlayer::prepareChild() {
     // 创建 format 上下文
     formatContext = avformat_alloc_context();
-    AVDictionary *avDictionary = 0;
+    AVDictionary *avDictionary = nullptr;
     av_dict_set(&avDictionary, "timeout", "5000000", 0);
     // 打开文件
-    int ret = avformat_open_input(&formatContext, data_source, 0, &avDictionary);
+    int ret = avformat_open_input(&formatContext, data_source, nullptr, &avDictionary);
     av_dict_free(&avDictionary);
     if (ret) {
         // 错误回调
@@ -45,7 +45,7 @@ void RealPlayer::prepareChild() {
         return;
     }
 
-    ret = avformat_find_stream_info(formatContext, 0);
+    ret = avformat_find_stream_info(formatContext, nullptr);
     if (ret < 0) {
         return;
     }
@@ -69,7 +69,7 @@ void RealPlayer::prepareChild() {
             return;
         }
         // 打开编解码器
-        ret = avcodec_open2(codecContext, codec, 0);
+        ret = avcodec_open2(codecContext, codec, nullptr);
         if (ret) {
             return;
         }
@@ -94,11 +94,11 @@ void RealPlayer::prepareChild() {
 void *task_play(void *args) {
     auto *player = static_cast<RealPlayer *>(args);
     player->playChild();
-    return 0;
+    return nullptr;
 }
 
 void RealPlayer::play() {
-    isPlaying = 1;
+    isPlaying = true;
 
     if (videoChannel) {
         videoChannel->start();
@@ -107,11 +107,20 @@ void RealPlayer::play() {
         audioChannel->start();
     }
 
-    pthread_create(&pid_play, 0, task_play, this);
+    pthread_create(&pid_play, nullptr, task_play, this);
 }
 
 void RealPlayer::playChild() {
     while (isPlaying) {
+        if (videoChannel && videoChannel->packets.size() > 100) {
+            av_usleep(10 * 1000);
+            continue;
+        }
+        if (audioChannel && audioChannel->packets.size() > 100) {
+            av_usleep(10 * 1000);
+            continue;
+        }
+
         AVPacket *packet = av_packet_alloc();
         int ret = av_read_frame(formatContext, packet);
         if (!ret) {
@@ -121,12 +130,14 @@ void RealPlayer::playChild() {
                 audioChannel->packets.insertToQueue(packet);
             }
         } else if (ret == AVERROR_EOF) {
-
+            if (videoChannel->packets.empty() && audioChannel->packets.empty()) {
+                break;
+            }
         } else {
             break;
         }
     }
-    isPlaying = 0;
+    isPlaying = false;
     videoChannel->stop();
     audioChannel->stop();
 }

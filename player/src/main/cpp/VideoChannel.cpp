@@ -1,5 +1,4 @@
 #include "VideoChannel.h"
-#include "RealPlayer.h"
 
 VideoChannel::VideoChannel(int stream_index, AVCodecContext *codec)
         : BaseChannel(stream_index, codec) {
@@ -42,8 +41,12 @@ void VideoChannel::start() {
  * 压缩包解码成原始包
  */
 void VideoChannel::video_decode() {
-    AVPacket *packet = av_packet_alloc();
+    AVPacket *packet = nullptr;
     while (isPlaying) {
+        if (isPlaying && frames.size() > 100) {
+            av_usleep(10 * 1000);
+            continue;
+        }
         int ret = packets.getQueueAndDel(packet);
         if (!isPlaying) {
             break;
@@ -52,7 +55,6 @@ void VideoChannel::video_decode() {
             continue;
         }
         ret = avcodec_send_packet(codecContext, packet);
-        releaseAVPacket(&packet);
         if (ret) {
             break;
         }
@@ -61,9 +63,15 @@ void VideoChannel::video_decode() {
         if (ret == AVERROR(EAGAIN)) {
             continue;
         } else if (ret != 0) {
+            if (frame) {
+                releaseAVFrame(&frame);
+            }
             break;
         }
         frames.insertToQueue(frame);
+        // 释放空间
+        av_packet_unref(packet);
+        releaseAVPacket(&packet);
     }
     releaseAVPacket(&packet);
 }
@@ -81,11 +89,11 @@ void VideoChannel::video_play() {
                    codecContext->width, codecContext->height,
                    AV_PIX_FMT_RGBA, 1);
 
-    AVFrame *frame = 0;
+    AVFrame *frame = nullptr;
     SwsContext *sws_ctx = sws_getContext(
             codecContext->width, codecContext->height, codecContext->pix_fmt,
             codecContext->width, codecContext->height, AV_PIX_FMT_RGBA,
-            SWS_BILINEAR, NULL, NULL, NULL
+            SWS_BILINEAR, nullptr, nullptr, nullptr
     );
 
     while (isPlaying) {
@@ -104,9 +112,11 @@ void VideoChannel::video_play() {
         renderCallback(*dst_data,
                        codecContext->width, codecContext->height,
                        *dst_line_size);
+        av_frame_unref(frame);
         releaseAVFrame(&frame);
     }
     // 释放工作
+    av_frame_unref(frame);
     releaseAVFrame(&frame);
     isPlaying = false;
     av_free(&dst_data);

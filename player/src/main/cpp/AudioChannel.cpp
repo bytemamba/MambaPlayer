@@ -11,14 +11,14 @@ AudioChannel::AudioChannel(int stream_index, AVCodecContext *codec)
     out_buffers_size = out_channels * out_sample_size * out_sample_rate;
     out_buffers = static_cast<uint8_t *>(malloc(out_buffers_size));
     // 音频重采样初始化
-    swr_ctx = swr_alloc_set_opts(0,
+    swr_ctx = swr_alloc_set_opts(nullptr,
                                  AV_CH_LAYOUT_STEREO,
                                  AV_SAMPLE_FMT_S16,
                                  out_sample_rate,
                                  codecContext->channels,
                                  codecContext->sample_fmt,
                                  codecContext->sample_rate,
-                                 0, 0);
+                                 0, nullptr);
     swr_init(swr_ctx);
 }
 
@@ -29,26 +29,26 @@ AudioChannel::~AudioChannel() {
 void *task_audio_decode(void *args) {
     auto *audio = static_cast<AudioChannel *> (args);
     audio->audio_decode();
-    return 0;
+    return nullptr;
 }
 
 void *task_audio_play(void *args) {
     auto *audio = static_cast<AudioChannel *>(args);
     audio->audio_play();
-    return 0;
+    return nullptr;
 }
 
 /**
  * 开启线程
  */
 void AudioChannel::start() {
-    isPlaying = 1;
+    isPlaying = true;
 
     packets.setWork(1);
     frames.setWork(1);
 
-    pthread_create(&pid_audio_decode, 0, task_audio_decode, this);
-    pthread_create(&pid_audio_play, 0, task_audio_play, this);
+    pthread_create(&pid_audio_decode, nullptr, task_audio_decode, this);
+    pthread_create(&pid_audio_play, nullptr, task_audio_play, this);
 }
 
 void AudioChannel::stop() {
@@ -61,8 +61,12 @@ void AudioChannel::stop() {
  * 将原始包丢入队列
  */
 void AudioChannel::audio_decode() {
-    AVPacket *packet = av_packet_alloc();
+    AVPacket *packet = nullptr;
     while (isPlaying) {
+        if (isPlaying && frames.size() > 100) {
+            av_usleep(10 * 1000);
+            continue;
+        }
         int ret = packets.getQueueAndDel(packet);
         if (!isPlaying) {
             break;
@@ -71,7 +75,6 @@ void AudioChannel::audio_decode() {
             continue;
         }
         ret = avcodec_send_packet(codecContext, packet);
-        releaseAVPacket(&packet);
         if (ret) {
             break;
         }
@@ -80,9 +83,15 @@ void AudioChannel::audio_decode() {
         if (ret == AVERROR(EAGAIN)) {
             continue;
         } else if (ret != 0) {
+            if (frame) {
+                releaseAVFrame(&frame);
+            }
             break;
         }
         frames.insertToQueue(frame);
+        // 释放空间
+        av_packet_unref(packet);
+        releaseAVPacket(&packet);
     }
     releaseAVPacket(&packet);
 }
@@ -103,8 +112,8 @@ void bqPlayerCallback(SLAndroidSimpleBufferQueueItf bq, void *args) {
 void AudioChannel::audio_play() {
     // 创建引擎并获取接口
     SLresult result = slCreateEngine(&engineObject, 0,
-                                     NULL, 0,
-                                     NULL, NULL);
+                                     nullptr, 0,
+                                     nullptr, nullptr);
     if (SL_RESULT_SUCCESS != result) {
         return;
     }
@@ -118,7 +127,7 @@ void AudioChannel::audio_play() {
     }
     // 设置混音器
     result = (*engineInterface)->CreateOutputMix(engineInterface, &outputMixObject,
-                                                 0, 0, 0);
+                                                 0, nullptr, nullptr);
     if (SL_RESULT_SUCCESS != result) {
         return;
     }
@@ -137,7 +146,7 @@ void AudioChannel::audio_play() {
     SLDataSource audioSrc = {&loc_bufq, &format_pcm};
     // 配置音轨
     SLDataLocator_OutputMix loc_outmix = {SL_DATALOCATOR_OUTPUTMIX, outputMixObject};
-    SLDataSink audioSnk = {&loc_outmix, NULL};
+    SLDataSink audioSnk = {&loc_outmix, nullptr};
     const SLInterfaceID ids[1] = {SL_IID_BUFFERQUEUE};
     const SLboolean req[1] = {SL_BOOLEAN_TRUE};
     // 创建播放器
@@ -170,7 +179,7 @@ void AudioChannel::audio_play() {
  */
 int AudioChannel::getPCM() {
     int pcm_data_size = 0;
-    AVFrame *frame = 0;
+    AVFrame *frame = nullptr;
     int ret = frames.getQueueAndDel(frame);
     if (!isPlaying) {
         return pcm_data_size;
@@ -194,5 +203,7 @@ int AudioChannel::getPCM() {
             frame->nb_samples
     );
     pcm_data_size = samples_per_channel * out_sample_size * out_channels;
+    av_frame_unref(frame);
+    releaseAVFrame(&frame);
     return pcm_data_size;
 }
