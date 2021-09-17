@@ -73,10 +73,16 @@ void RealPlayer::prepareChild() {
         if (ret) {
             return;
         }
+        AVRational time_base = stream->time_base;
         if (parameters->codec_type == AVMediaType::AVMEDIA_TYPE_AUDIO) {
-            audioChannel = new AudioChannel(i, codecContext);
+            audioChannel = new AudioChannel(i, codecContext, time_base);
         } else if (parameters->codec_type == AVMediaType::AVMEDIA_TYPE_VIDEO) {
-            videoChannel = new VideoChannel(i, codecContext);
+            if (stream->disposition & AV_DISPOSITION_ATTACHED_PIC) {
+                continue;
+            }
+            AVRational fps_rational = stream->avg_frame_rate;
+            int fps = av_q2d(fps_rational);
+            videoChannel = new VideoChannel(i, codecContext, time_base, fps);
             videoChannel->setRenderCallback(renderCallback);
         }
     }
@@ -101,6 +107,7 @@ void RealPlayer::play() {
     isPlaying = true;
 
     if (videoChannel) {
+        videoChannel->setAudioChannel(audioChannel);
         videoChannel->start();
     }
     if (audioChannel) {

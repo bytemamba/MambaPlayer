@@ -11,7 +11,7 @@ extern "C" {
 
 class AudioChannel : public BaseChannel {
 public:
-    AudioChannel(int stream_index, AVCodecContext *codec);
+    AudioChannel(int stream_index, AVCodecContext *codec, AVRational rational);
 
     ~AudioChannel();
 
@@ -22,6 +22,8 @@ public:
     void audio_decode();
 
     void audio_play();
+
+    int getPCM();
 
 private:
     pthread_t pid_audio_decode;
@@ -40,9 +42,7 @@ public:
     int out_buffers_size;
     uint8_t *out_buffers = 0;
     SwrContext *swr_ctx = 0;
-
-    int getPCM();
+    double audio_time;
 };
-
 
 #endif //MAMBAPLAYER_AUDIOCHANNEL_H

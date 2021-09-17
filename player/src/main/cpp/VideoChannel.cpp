@@ -1,8 +1,31 @@
 #include "VideoChannel.h"
 
-VideoChannel::VideoChannel(int stream_index, AVCodecContext *codec)
-        : BaseChannel(stream_index, codec) {
+void dropAVFrame(queue<AVFrame *> &q) {
+    __android_log_print(ANDROID_LOG_ERROR, "X_TAG", "dropAVFrame");
+    if (!q.empty()) {
+        AVFrame *frame = q.front();
+        BaseChannel::releaseAVFrame(&frame);
+        q.pop();
+    }
+}
 
+void dropAVPackets(queue<AVPacket *> &q) {
+    __android_log_print(ANDROID_LOG_ERROR, "X_TAG", "dropAVPackets");
+    while (!q.empty()) {
+        AVPacket *pkt = q.front();
+        if (pkt->flags != AV_PKT_FLAG_KEY) {
+            BaseChannel::releaseAVPacket(&pkt);
+            q.pop();
+        } else {
+            break;
+        }
+    }
+}
+
+VideoChannel::VideoChannel(int stream_index, AVCodecContext *codec, AVRational time_base, int fps)
+        : BaseChannel(stream_index, codec, time_base), fps(fps) {
+    frames.setSyncCallback(dropAVFrame);
+    packets.setSyncCallback(dropAVPackets);
 }
 
 VideoChannel::~VideoChannel() {
@@ -108,6 +131,26 @@ void VideoChannel::video_play() {
         sws_scale(sws_ctx, frame->data, frame->linesize,
                   0, codecContext->height,
                   dst_data, dst_line_size);
+        // 视频延迟时间
+        double extra_delay = frame->repeat_pict / (2 * fps);
+        double fps_duration = 1.0 / fps;
+        double real_delay = extra_delay + fps_duration;
+        // 音视频同步
+        double audio_time = audioChannel->audio_time;
+        double video_time = frame->best_effort_timestamp * av_q2d(time_base);
+        double time_diff = video_time - audio_time;
+        if (time_diff > 0) {
+            if (time_diff > 1) {
+                av_usleep((real_delay * 2) * 1000000);
+            } else {
+                av_usleep((real_delay + time_diff) * 1000000);
+            }
+        } else if (time_diff < 0) {
+            if (fabs(time_diff) <= 0.05) {
+                frames.sync();
+                continue;
+            }
+        }
         // 渲染到 SurfaceView
         renderCallback(*dst_data,
                        codecContext->width, codecContext->height,
@@ -132,4 +175,12 @@ void VideoChannel::stop() {
 
 void VideoChannel::setRenderCallback(RenderCallback callback) {
     this->renderCallback = callback;
+}
+
+/**
+ * 以 AudioChannel 时间为基准
+ * @param channel
+ */
+void VideoChannel::setAudioChannel(AudioChannel *channel) {
+    this->audioChannel = channel;
 }

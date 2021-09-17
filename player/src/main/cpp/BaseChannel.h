@@ -2,6 +2,7 @@
 #define MAMBAPLAYER_BASECHANNEL_H
 
 #include "SafeQueue.h"
+#include <android/log.h>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -15,9 +16,10 @@ public:
     SafeQueue<AVPacket *> packets;
     SafeQueue<AVFrame *> frames;
     AVCodecContext *codecContext = 0;
+    AVRational time_base;
 
-    BaseChannel(int stream_index, AVCodecContext *codecContext) :
-            stream_index(stream_index), codecContext(codecContext) {
+    BaseChannel(int stream_index, AVCodecContext *codecContext, AVRational time_base) :
+            stream_index(stream_index), codecContext(codecContext), time_base(time_base) {
         packets.setReleaseCallback(releaseAVPacket);
         frames.setReleaseCallback(releaseAVFrame);
     }

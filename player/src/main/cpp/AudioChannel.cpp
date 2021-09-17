@@ -1,7 +1,7 @@
 #include "AudioChannel.h"
 
-AudioChannel::AudioChannel(int stream_index, AVCodecContext *codec)
-        : BaseChannel(stream_index, codec) {
+AudioChannel::AudioChannel(int stream_index, AVCodecContext *codec, AVRational time_base)
+        : BaseChannel(stream_index, codec, time_base) {
     // 音频三要素
     // 通道数、位深、采样率
     out_channels = av_get_channel_layout_nb_channels(AV_CH_LAYOUT_STEREO);
@@ -203,6 +203,7 @@ int AudioChannel::getPCM() {
             frame->nb_samples
     );
     pcm_data_size = samples_per_channel * out_sample_size * out_channels;
+    audio_time = frame->best_effort_timestamp * av_q2d(time_base);
     av_frame_unref(frame);
     releaseAVFrame(&frame);
     return pcm_data_size;
