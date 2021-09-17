@@ -68,13 +68,18 @@ Java_com_mamba_player_Player_nativePlay(JNIEnv *env, jobject thiz) {
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_mamba_player_Player_nativeStop(JNIEnv *env, jobject thiz) {
-
+    if (player) {
+        player->stop();
+    }
 }
 
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_mamba_player_Player_nativeRelease(JNIEnv *env, jobject thiz) {
 
+    if (player) {
+        player->release();
+    }
 }
 
 extern "C"
@@ -89,4 +94,21 @@ Java_com_mamba_player_Player_nativeSetSurface(JNIEnv *env, jobject thiz, jobject
     window = ANativeWindow_fromSurface(env, surface);
 
     pthread_mutex_unlock(&mutex);
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_mamba_player_Player_nativeDuration(JNIEnv *env, jobject thiz) {
+    if (player) {
+        return player->getDuration();
+    }
+    return 0;
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_mamba_player_Player_nativeSeekTo(JNIEnv *env, jobject thiz, jlong time) {
+    if (player) {
+        player->seekTo(time);
+    }
 }

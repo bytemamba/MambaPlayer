@@ -170,7 +170,7 @@ void VideoChannel::video_play() {
  * 视频结束
  */
 void VideoChannel::stop() {
-
+    isPlaying = false;
 }
 
 void VideoChannel::setRenderCallback(RenderCallback callback) {

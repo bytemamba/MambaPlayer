@@ -566,7 +566,7 @@ typedef struct AVFrame {
     int64_t pkt_pos;
 
     /**
-     * duration of the corresponding packet, expressed in
+     * getDuration of the corresponding packet, expressed in
      * AVStream->time_base units, 0 if unknown.
      * - encoding: unused
      * - decoding: Read by user.

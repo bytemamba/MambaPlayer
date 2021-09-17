@@ -2,6 +2,7 @@
 #define MAMBAPLAYER_BASECHANNEL_H
 
 #include "SafeQueue.h"
+#include "JNICallbackHelper.h"
 #include <android/log.h>
 
 extern "C" {
@@ -17,6 +18,11 @@ public:
     SafeQueue<AVFrame *> frames;
     AVCodecContext *codecContext = 0;
     AVRational time_base;
+    JNICallbackHelper *jniHelper = 0;
+
+    void setJNICallbackHelper(JNICallbackHelper *jniHelper) {
+        this->jniHelper = jniHelper;
+    }
 
     BaseChannel(int stream_index, AVCodecContext *codecContext, AVRational time_base) :
             stream_index(stream_index), codecContext(codecContext), time_base(time_base) {

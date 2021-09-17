@@ -30,6 +30,14 @@ public:
 
     void setRenderCallback(RenderCallback callback);
 
+    void stop();
+
+    void release();
+
+    void seekTo(long time);
+
+    int getDuration();
+
 private:
     char *data_source = 0;
     pthread_t pid_prepare;
@@ -40,6 +48,8 @@ private:
     JNICallbackHelper *helper = 0;
     bool isPlaying = 0;
     RenderCallback renderCallback;
+    pthread_mutex_t seek_mutex;
+    int duration;
 };
 
 #endif //MAMBAPLAYER_REALPLAYER_H

@@ -999,8 +999,8 @@ typedef struct RcOverride{
  * encoder no longer returns data.
  *
  * NOTE: For encoders implementing the AVCodec.encode2() function, setting this
- *       flag also means that the encoder must set the pts and duration for
- *       each output packet. If this flag is not set, the pts and duration will
+ *       flag also means that the encoder must set the pts and getDuration for
+ *       each output packet. If this flag is not set, the pts and getDuration will
  *       be determined by libavcodec from the input frame.
  */
 #define AV_CODEC_CAP_DELAY               (1 <<  5)
@@ -1498,9 +1498,9 @@ typedef struct AVPacket {
 
 #if FF_API_CONVERGENCE_DURATION
     /**
-     * @deprecated Same as the duration field, but as int64_t. This was required
-     * for Matroska subtitles, whose duration values could overflow when the
-     * duration field was still an int.
+     * @deprecated Same as the getDuration field, but as int64_t. This was required
+     * for Matroska subtitles, whose getDuration values could overflow when the
+     * getDuration field was still an int.
      */
     attribute_deprecated
     int64_t convergence_duration;
@@ -1689,7 +1689,7 @@ typedef struct AVCodecContext {
 
     /**
      * For some codecs, the time base is closer to the field rate than the frame rate.
-     * Most notably, H.264 and MPEG-2 specify time_base as half of frame duration
+     * Most notably, H.264 and MPEG-2 specify time_base as half of frame getDuration
      * if no telecine is used ...
      *
      * Set to time_base ticks per frame. Default 1, e.g., H.264/MPEG-2 set it to 2.
@@ -5115,9 +5115,9 @@ typedef struct AVCodecParserContext {
     /* video info */
     int pict_type; /* XXX: Put it back in AVCodecContext. */
     /**
-     * This field is used for proper frame duration computation in lavf.
-     * It signals, how much longer the frame duration of the current frame
-     * is compared to normal frame duration.
+     * This field is used for proper frame getDuration computation in lavf.
+     * It signals, how much longer the frame getDuration of the current frame
+     * is compared to normal frame getDuration.
      *
      * frame_duration = (1 + repeat_pict) * time_base
      *
@@ -5719,11 +5719,11 @@ enum AVCodecID av_get_pcm_codec(enum AVSampleFormat fmt, int be);
 int av_get_exact_bits_per_sample(enum AVCodecID codec_id);
 
 /**
- * Return audio frame duration.
+ * Return audio frame getDuration.
  *
  * @param avctx        codec context
  * @param frame_bytes  size of the frame, or 0 if unknown
- * @return             frame duration, in samples, if known. 0 if not able to
+ * @return             frame getDuration, in samples, if known. 0 if not able to
  *                     determine.
  */
 int av_get_audio_frame_duration(AVCodecContext *avctx, int frame_bytes);

@@ -210,13 +210,13 @@ int64_t av_compare_mod(uint64_t a, uint64_t b, uint64_t mod);
  * @param[in]     fs_tb    Duration time base; typically this is finer-grained
  *                         (greater) than `in_tb` and `out_tb`
  * @param[in]     duration Duration till the next call to this function (i.e.
- *                         duration of the current packet/frame)
+ *                         getDuration of the current packet/frame)
  * @param[in,out] last     Pointer to a timestamp expressed in terms of
  *                         `fs_tb`, acting as a state variable
  * @param[in]     out_tb   Output timebase
  * @return        Timestamp expressed in terms of `out_tb`
  *
- * @note In the context of this function, "duration" is in term of samples, not
+ * @note In the context of this function, "getDuration" is in term of samples, not
  *       seconds.
  */
 int64_t av_rescale_delta(AVRational in_tb, int64_t in_ts,  AVRational fs_tb, int duration, int64_t *last, AVRational out_tb);

@@ -52,7 +52,7 @@ void AudioChannel::start() {
 }
 
 void AudioChannel::stop() {
-
+    isPlaying = false;
 }
 
 /**
@@ -204,6 +204,9 @@ int AudioChannel::getPCM() {
     );
     pcm_data_size = samples_per_channel * out_sample_size * out_channels;
     audio_time = frame->best_effort_timestamp * av_q2d(time_base);
+    if (jniHelper) {
+        jniHelper->onProgress(THREAD_CHILD, audio_time);
+    }
     av_frame_unref(frame);
     releaseAVFrame(&frame);
     return pcm_data_size;

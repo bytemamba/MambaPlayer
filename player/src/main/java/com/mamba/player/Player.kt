@@ -14,6 +14,7 @@ class Player(private val dataSource: String) : SurfaceHolder.Callback {
     }
 
     private var playerListener: PlayerListener? = null
+    private var progressAction: ((Int) -> Unit)? = null
     private var surfaceHolder: SurfaceHolder? = null
 
     /**
@@ -41,6 +42,15 @@ class Player(private val dataSource: String) : SurfaceHolder.Callback {
      */
     fun release() = nativeRelease()
 
+
+    fun getDuration(): Int {
+        return nativeDuration()
+    }
+
+    fun seekTo(time: Long) {
+        nativeSeekTo(time)
+    }
+
     /**
      * 设置播放监听
      *
@@ -48,6 +58,10 @@ class Player(private val dataSource: String) : SurfaceHolder.Callback {
      */
     fun setPlayerListener(playerListener: PlayerListener) {
         this.playerListener = playerListener
+    }
+
+    fun setProgressAction(action: ((Int) -> Unit)) {
+        this.progressAction = action
     }
 
     /**
@@ -67,11 +81,17 @@ class Player(private val dataSource: String) : SurfaceHolder.Callback {
     private external fun nativeStop()
     private external fun nativeRelease()
     private external fun nativeSetSurface(surface: Surface)
+    private external fun nativeDuration(): Int
+    private external fun nativeSeekTo(time: Long)
 
     // --------- JNI callback
     fun onPrepared() {
         Log.e("X_TAG", "JNI callback")
         playerListener?.onPrepared()
+    }
+
+    fun onProgress(progress: Int) {
+        progressAction?.invoke(progress)
     }
 
     interface PlayerListener {
