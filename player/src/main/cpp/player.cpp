@@ -76,10 +76,15 @@ Java_com_mamba_player_Player_nativeStop(JNIEnv *env, jobject thiz) {
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_mamba_player_Player_nativeRelease(JNIEnv *env, jobject thiz) {
-
-    if (player) {
-        player->release();
+    pthread_mutex_lock(&mutex);
+    if (window) {
+        ANativeWindow_release(window);
+        window = nullptr;
     }
+    pthread_mutex_unlock(&mutex);
+
+    DELETE(player)
+    DELETE(vm)
 }
 
 extern "C"
@@ -89,7 +94,7 @@ Java_com_mamba_player_Player_nativeSetSurface(JNIEnv *env, jobject thiz, jobject
 
     if (window) {
         ANativeWindow_release(window);
-        window = 0;
+        window = nullptr;
     }
     window = ANativeWindow_fromSurface(env, surface);
 

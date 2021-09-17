@@ -43,38 +43,46 @@ void RealPlayer::prepareChild() {
     if (ret) {
         // 错误回调
         char *errMsg = av_err2str(ret);
-        __android_log_print(ANDROID_LOG_ERROR, "X_TAG", "onPrepared failed %s", errMsg);
+        avformat_close_input(&formatContext);
         return;
     }
 
     ret = avformat_find_stream_info(formatContext, nullptr);
     if (ret < 0) {
+        avformat_close_input(&formatContext);
         return;
     }
     // 视频总时长
     duration = formatContext->duration / AV_TIME_BASE;
-
+    AVCodecContext *codecContext = nullptr;
     for (int i = 0; i < formatContext->nb_streams; ++i) {
         AVStream *stream = formatContext->streams[i];
         AVCodecParameters *parameters = stream->codecpar;
         // 根据流参数获取编解码器
         AVCodec *codec = avcodec_find_decoder(parameters->codec_id);
         if (!codec) {
+            avformat_close_input(&formatContext);
             return;
         }
         // 创建编解码上下文
-        AVCodecContext *codecContext = avcodec_alloc_context3(codec);
+        codecContext = avcodec_alloc_context3(codec);
         if (!codecContext) {
+            avcodec_free_context(&codecContext);
+            avformat_close_input(&formatContext);
             return;
         }
         // 设置参数到上下文
         ret = avcodec_parameters_to_context(codecContext, parameters);
         if (ret < 0) {
+            avcodec_free_context(&codecContext);
+            avformat_close_input(&formatContext);
             return;
         }
         // 打开编解码器
         ret = avcodec_open2(codecContext, codec, nullptr);
         if (ret) {
+            avcodec_free_context(&codecContext);
+            avformat_close_input(&formatContext);
             return;
         }
         AVRational time_base = stream->time_base;
@@ -94,6 +102,10 @@ void RealPlayer::prepareChild() {
     }
 
     if (!audioChannel || !videoChannel) {
+        if (codecContext) {
+            avcodec_free_context(&codecContext);
+        }
+        avformat_close_input(&formatContext);
         return;
     }
 
@@ -159,15 +171,6 @@ void RealPlayer::setRenderCallback(RenderCallback callback) {
     this->renderCallback = callback;
 }
 
-void RealPlayer::stop() {
-    videoChannel->stop();
-    audioChannel->stop();
-}
-
-void RealPlayer::release() {
-
-}
-
 int RealPlayer::getDuration() {
     return duration;
 }
@@ -198,4 +201,36 @@ void RealPlayer::seekTo(long time) {
         videoChannel->frames.setWork(1);
     }
     pthread_mutex_unlock(&seek_mutex);
+}
+
+void *task_stop(void *args) {
+    RealPlayer *player = static_cast<RealPlayer *>(args);
+    player->stopChild(player);
+    return nullptr;
+}
+
+void RealPlayer::stop() {
+    helper = nullptr;
+    if (videoChannel) {
+        videoChannel->jniHelper = nullptr;
+    }
+    if (audioChannel) {
+        audioChannel->jniHelper = nullptr;
+    }
+    pthread_create(&pid_stop, nullptr, task_stop, this);
+}
+
+void RealPlayer::stopChild(RealPlayer *player) {
+    isPlaying = false;
+    pthread_join(pid_prepare, nullptr);
+    pthread_join(pid_play, nullptr);
+
+    if (formatContext) {
+        avformat_close_input(&formatContext);
+        avformat_free_context(formatContext);
+        formatContext = nullptr;
+    }
+    DELETE(audioChannel)
+    DELETE(videoChannel)
+    DELETE(player)
 }

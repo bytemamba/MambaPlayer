@@ -30,18 +30,19 @@ public:
 
     void setRenderCallback(RenderCallback callback);
 
-    void stop();
-
-    void release();
-
     void seekTo(long time);
 
     int getDuration();
+
+    void stop();
+
+    void stopChild(RealPlayer *player);
 
 private:
     char *data_source = 0;
     pthread_t pid_prepare;
     pthread_t pid_play;
+    pthread_t pid_stop;
     AVFormatContext *formatContext = 0;
     AudioChannel *audioChannel = 0;
     VideoChannel *videoChannel = 0;
