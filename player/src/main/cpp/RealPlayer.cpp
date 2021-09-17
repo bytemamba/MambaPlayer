@@ -74,7 +74,7 @@ void RealPlayer::prepareChild() {
             return;
         }
         if (parameters->codec_type == AVMediaType::AVMEDIA_TYPE_AUDIO) {
-            audioChannel = new AudioChannel();
+            audioChannel = new AudioChannel(i, codecContext);
         } else if (parameters->codec_type == AVMediaType::AVMEDIA_TYPE_VIDEO) {
             videoChannel = new VideoChannel(i, codecContext);
             videoChannel->setRenderCallback(renderCallback);
@@ -103,6 +103,9 @@ void RealPlayer::play() {
     if (videoChannel) {
         videoChannel->start();
     }
+    if (audioChannel) {
+        audioChannel->start();
+    }
 
     pthread_create(&pid_play, 0, task_play, this);
 }
@@ -114,6 +117,8 @@ void RealPlayer::playChild() {
         if (!ret) {
             if (videoChannel && packet->stream_index == videoChannel->stream_index) {
                 videoChannel->packets.insertToQueue(packet);
+            } else if (audioChannel && packet->stream_index == audioChannel->stream_index) {
+                audioChannel->packets.insertToQueue(packet);
             }
         } else if (ret == AVERROR_EOF) {
 
@@ -123,6 +128,7 @@ void RealPlayer::playChild() {
     }
     isPlaying = 0;
     videoChannel->stop();
+    audioChannel->stop();
 }
 
 void RealPlayer::setRenderCallback(RenderCallback callback) {
